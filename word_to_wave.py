@@ -1,7 +1,6 @@
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import pyaudio
-from text_to_img import as_array
 from typing import List
 
 class WordToWave(object):
