@@ -42,6 +42,11 @@ class WordToWave(object):
         for w in wave:
             self._stream.write(w.astype(np.float32).tostring())
 
+    def save_wave(self, wave: np.ndarray, file_path: str):
+        with open(file_path, "wb") as file:
+            for w in wave:
+                file.write(w.astype(np.float32).tostring())
+
     def message_to_wave(self, message: str):
         wave = np.array([0])
         for character in message:
@@ -93,4 +98,5 @@ if __name__ == "__main__":
     w2v = WordToWave()
     with WordToWave() as w2v:
         wv = w2v.message_to_wave(message)
+        w2v.save_wave(wv, "test.wav")
         w2v.play_wave(wv)
