@@ -4,7 +4,11 @@ import pyaudio
 from typing import List
 
 class WordToWave(object):
-    def __init__(self, pixel_duration: float = 0.1, min_freq: float = 3000, max_freq: float = 5000, volume: float = 1.0, Fs: float = 44100):
+    def __init__(self, pixel_duration: float = 0.13,
+                 min_freq: float = 2000, max_freq: float = 5000, volume: float = 1.0, Fs: float = 44100,
+                 channels: int = 1, silent_tone: float = 100, smoothing = 0.60,
+                 img_width: float = 128, img_heigth: float = 128, font_size: int = 128,
+                 start_x: int = 0, start_y: int = -24, font: str = "RobotoCondensed-Regular.ttf"):
         self._pixel_duration = pixel_duration
         self._min_freq = min_freq
         self._max_freq = max_freq
@@ -13,15 +17,17 @@ class WordToWave(object):
 
         self._samples_per_pixel = int(self._pixel_duration * self._Fs)
 
-        self._channels = 1
+        self._channels = channels
+        self._silent_tone = silent_tone
+        self._smoothing = smoothing
 
-        self._img_width = 32
-        self._img_height = 32
-        self._font_size = 40
-        self._start_x = 0
-        self._start_y = -11
-        self._font = "OpenSans-Light.ttf"
-
+        # Font properties
+        self._img_width = img_width
+        self._img_height = img_heigth
+        self._font_size = font_size
+        self._start_x = start_x
+        self._start_y = start_y
+        self._font = font
 
     def __enter__(self):
         self._p = pyaudio.PyAudio()
@@ -55,6 +61,17 @@ class WordToWave(object):
 
     def _char_to_wave(self, character: str):
         img = self._char_to_array(character)
+
+        return self._img_to_wave(img)
+
+    def _smooth_connect(self, a: np.ndarray, b: np.ndarray):
+        smoothed_elements = int(self._smoothing * min(len(a), len(b)))
+        fade = 1.0 - np.array([(i/smoothed_elements) for i in range(smoothed_elements)])
+        overlap = a[-smoothed_elements:] * fade + b[0:smoothed_elements] * (1 - fade)
+        smoothed_wave = np.concatenate((a[0:-smoothed_elements], overlap, b[smoothed_elements:]))
+        return smoothed_wave
+
+    def _img_to_wave(self, img: np.ndarray):
         im_ht, im_wid = img.shape
 
         wave = np.array([0])
@@ -63,8 +80,9 @@ class WordToWave(object):
             active_pixels = np.where(img[:, column])[0]
             freqs = (im_ht - active_pixels) / im_ht * (self._max_freq - self._min_freq) + self._min_freq
             if not freqs.any():
-                freqs = np.array([1])
-            wave = np.concatenate((wave, self._composite_wave(freqs)))
+                freqs = np.array([])
+            freqs = np.concatenate((freqs, np.array([self._silent_tone])))
+            wave = self._smooth_connect(wave, self._composite_wave(freqs))
 
         return wave
 
@@ -81,6 +99,8 @@ class WordToWave(object):
             img = img[:, non_empty]
             pad = np.zeros((self._img_height, padding))
             img = np.concatenate((pad, img, pad), axis = 1)
+        else:
+            img = img[:, 0:int(self._img_width/3.)]
 
         return img
 
@@ -93,9 +113,11 @@ class WordToWave(object):
         return samples
 
 if __name__ == "__main__":
-    message = "Word 2 Wave -- "
+
+    message = "ALPHABET"
+
     w2v = WordToWave()
-    with WordToWave() as w2v:
-        wv = w2v.message_to_wave(message)
-        w2v.save_wave(wv, "test.wav")
-        w2v.play_wave(wv)
+    wave = w2v.message_to_wave(message)
+
+    with w2v:
+        w2v.play_wave(wave)
