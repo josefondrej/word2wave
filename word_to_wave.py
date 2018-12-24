@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import pyaudio
+import wavio
 from typing import List
 
 class WordToWave(object):
@@ -48,9 +49,7 @@ class WordToWave(object):
             self._stream.write(w.astype(np.float32).tostring())
 
     def save_wave(self, wave: np.ndarray, file_path: str):
-        with open(file_path, "wb") as file:
-            for w in wave:
-                file.write(w.astype(np.float32).tostring())
+        wavio.write(file_path, wave, rate = self._Fs, sampwidth = 4)
 
     def message_to_wave(self, message: str):
         wave = np.array([0])
@@ -118,6 +117,8 @@ if __name__ == "__main__":
 
     w2v = WordToWave()
     wave = w2v.message_to_wave(message)
+
+    w2v.save_wave(wave, "ALPHABET.wav")
 
     with w2v:
         w2v.play_wave(wave)
